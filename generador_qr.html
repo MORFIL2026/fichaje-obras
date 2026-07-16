@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador QR - Obras BOFIBIZA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg: #1C1E21;
+    --panel: #26292D;
+    --text: #F5F3EE;
+    --muted: #9AA0A6;
+    --accent: #FF6B1A;
+    --border: #383B40;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding:24px;
+  }
+  h1{ font-size:22px; margin:0 0 6px 0; }
+  .sub{ color: var(--muted); font-size:14px; margin:0 0 24px 0; }
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap:16px;
+  }
+  .tarjeta{
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px;
+    text-align:center;
+  }
+  .tarjeta h2{ font-size:15px; margin:0 0 12px 0; color: var(--accent); }
+  .qr-contenedor{ background:#fff; display:inline-block; padding:10px; border-radius:8px; }
+  .url-texto{ font-size:10px; color: var(--muted); word-break: break-all; margin-top:10px; }
+  input[type="text"]{
+    width:100%; padding:10px; border-radius:8px; border:1px solid var(--border);
+    background:var(--bg); color:var(--text); font-size:14px; margin-bottom:10px;
+  }
+  button.imprimir{
+    background: var(--accent);
+    color:#1C1E21;
+    border:none;
+    padding:12px 20px;
+    border-radius:10px;
+    font-weight:800;
+    cursor:pointer;
+    font-size:14px;
+    margin-bottom:24px;
+  }
+  button.imprimir:disabled{ opacity:0.5; cursor:not-allowed; }
+  .cargando{ text-align:center; color: var(--muted); font-size:14px; }
+  @media print{
+    body{ background:#fff; color:#000; }
+    button.imprimir, #bloqueGenerar{ display:none; }
+    .tarjeta{ break-inside: avoid; border:1px solid #ccc; }
+    .sub, .url-texto{ color:#555; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Códigos QR de fichaje por obra — BOFIBIZA</h1>
+<p class="sub">Un QR por obra. Pégalo en el salpicadero o en un panel visible de cada obra. Escanéalo con la cámara del móvil.</p>
+
+<div class="tarjeta" id="bloqueGenerar" style="max-width:420px; text-align:left; margin-bottom:28px;">
+  <h2 style="margin-bottom:10px;">Generar un QR nuevo</h2>
+  <p class="sub" style="margin-bottom:14px;">Úsalo cuando empiece una obra nueva. Se guarda en la hoja compartida, así que aparecerá en cualquier ordenador donde abras este generador.</p>
+  <input type="text" id="nombreNuevaObra" placeholder="Ej: Cala Vadella Reforma">
+  <button class="imprimir" id="btnGenerar" onclick="generarQrIndividual()" style="margin-bottom:0;">Generar y guardar QR</button>
+  <div id="resultadoIndividual" style="margin-top:16px;"></div>
+</div>
+
+<button class="imprimir" onclick="window.print()">🖨️ Imprimir todos los QR de abajo</button>
+
+<div class="grid" id="grid">
+  <p class="cargando">Cargando obras desde la hoja...</p>
+</div>
+
+<script>
+// ==== CONFIGURA AQUÍ TU URL DE GOOGLE APPS SCRIPT (la misma que en fichaje.html) ====
+const APPS_SCRIPT_URL = "PON_AQUI_TU_URL_DE_APPS_SCRIPT";
+// =====================================================================================
+
+const BASE_URL = "https://morfil2026.github.io/fichaje-obras/";
+const grid = document.getElementById('grid');
+
+function crearTarjetaQR(obra, contenedorDestino){
+  const url = BASE_URL + "?obra=" + encodeURIComponent(obra);
+
+  const tarjeta = document.createElement('div');
+  tarjeta.className = 'tarjeta';
+
+  const titulo = document.createElement('h2');
+  titulo.textContent = obra;
+  tarjeta.appendChild(titulo);
+
+  const qrDiv = document.createElement('div');
+  qrDiv.className = 'qr-contenedor';
+  tarjeta.appendChild(qrDiv);
+
+  const urlTexto = document.createElement('div');
+  urlTexto.className = 'url-texto';
+  urlTexto.textContent = url;
+  tarjeta.appendChild(urlTexto);
+
+  contenedorDestino.appendChild(tarjeta);
+
+  new QRCode(qrDiv, {
+    text: url,
+    width: 160,
+    height: 160,
+    colorDark: "#000000",
+    colorLight: "#ffffff"
+  });
+}
+
+async function cargarObras(){
+  grid.innerHTML = '<p class="cargando">Cargando obras desde la hoja...</p>';
+  try{
+    const resp = await fetch(APPS_SCRIPT_URL + "?tipo=obras");
+    const obras = await resp.json();
+    grid.innerHTML = '';
+    obras.forEach(obra => crearTarjetaQR(obra, grid));
+    if(obras.length === 0){
+      grid.innerHTML = '<p class="cargando">No hay obras activas en la hoja.</p>';
+    }
+  }catch(e){
+    grid.innerHTML = '<p class="cargando">No se pudo cargar la lista. Comprueba tu conexión o la URL de Apps Script.</p>';
+  }
+}
+
+async function generarQrIndividual(){
+  const nombre = document.getElementById('nombreNuevaObra').value.trim();
+  const resultado = document.getElementById('resultadoIndividual');
+  resultado.innerHTML = '';
+  if(!nombre){
+    resultado.innerHTML = '<p class="sub">Escribe primero el nombre de la obra.</p>';
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({ tipo: 'nuevaObra', nombre: nombre })
+    });
+
+    // Vista previa inmediata
+    crearTarjetaQR(nombre, resultado);
+    document.getElementById('nombreNuevaObra').value = '';
+
+    // Recargamos la lista completa desde la hoja para que quede reflejada abajo también
+    await cargarObras();
+  }catch(e){
+    resultado.innerHTML = '<p class="sub">No se pudo guardar. Comprueba tu conexión e inténtalo de nuevo.</p>';
+  }finally{
+    btn.disabled = false;
+    btn.textContent = 'Generar y guardar QR';
+  }
+}
+
+cargarObras();
+</script>
+
+</body>
+</html>

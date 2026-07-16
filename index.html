@@ -182,7 +182,7 @@
   <p class="eyebrow" id="obraLabel">OBRA</p>
   <h1 id="obraNombre">—</h1>
   <p class="hora">Camión: <strong id="camionNombre">—</strong> · Fichaje a las <strong id="horaActual">--:--:--</strong></p>
-  <button class="cambiar-camion" onclick="cambiarCamion()">¿No eres tú? Cambiar vehículo</button>
+  <button class="cambiar-camion" id="btnCambiarCamion" onclick="cambiarCamion()" style="display:none;">¿No eres tú? Cambiar vehículo</button>
 
   <div id="bloqueMaterial">
     <p class="pregunta">¿Llevas material?</p>
@@ -216,6 +216,8 @@
 <script>
 // ==== CONFIGURA AQUÍ TU URL DE GOOGLE APPS SCRIPT ====
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLNCOJ5a6VbrS-iBsBlB5z9XqRmjFrowdYAF1gukpG2XNF-tVNQ9-Phgl94vAXCGnnYg/exec";
+// ==== PIN para poder cambiar de vehículo (solo gestión) ====
+const PIN_CAMBIO = "2468";
 // =======================================================
 
 const params = new URLSearchParams(window.location.search);
@@ -272,7 +274,13 @@ function seleccionarCamion(c){
 }
 
 function cambiarCamion(){
+  const pin = prompt('Introduce el PIN de gestión para cambiar de vehículo:');
+  if(pin !== PIN_CAMBIO){
+    alert('PIN incorrecto. Si necesitas cambiar de vehículo, contacta con la oficina.');
+    return;
+  }
   localStorage.removeItem('miCamion');
+  miCamion = null;
   iniciar();
 }
 
@@ -289,6 +297,11 @@ function mostrarPantallaFichaje(){
   }else{
     document.getElementById('bloqueMaterial').style.display = 'block';
     document.getElementById('bloqueExternos').style.display = 'none';
+  }
+
+  // El enlace de cambiar vehículo solo aparece si la URL lleva ?cambiar=1 (uso de gestión)
+  if(params.get('cambiar') === '1'){
+    document.getElementById('btnCambiarCamion').style.display = 'block';
   }
 
   intentarEnviarCola();

@@ -113,9 +113,8 @@
     color: var(--muted);
     margin-top:2px;
   }
-  textarea{
+  textarea, input[type="text"]{
     width:100%;
-    min-height:80px;
     background: var(--bg);
     border:1px solid var(--border);
     border-radius:10px;
@@ -123,9 +122,18 @@
     font-size:15px;
     padding:12px;
     font-family:inherit;
-    resize:vertical;
     margin-bottom:18px;
+  }
+  textarea{
+    min-height:80px;
+    resize:vertical;
     display:none;
+  }
+  .campo-label{
+    font-size:13px;
+    color: var(--muted);
+    margin:0 0 8px 0;
+    font-weight:600;
   }
   .enviar{
     width:100%;
@@ -176,13 +184,29 @@
   <p class="hora">Camión: <strong id="camionNombre">—</strong> · Fichaje a las <strong id="horaActual">--:--:--</strong></p>
   <button class="cambiar-camion" onclick="cambiarCamion()">¿No eres tú? Cambiar vehículo</button>
 
-  <p class="pregunta">¿Llevas material?</p>
-  <div class="btn-row">
-    <button id="btnSi" onclick="seleccionMaterial(true)">Sí</button>
-    <button id="btnNo" onclick="seleccionMaterial(false)">No</button>
+  <div id="bloqueMaterial">
+    <p class="pregunta">¿Llevas material?</p>
+    <div class="btn-row">
+      <button id="btnSi" onclick="seleccionMaterial(true)">Sí</button>
+      <button id="btnNo" onclick="seleccionMaterial(false)">No</button>
+    </div>
+    <textarea id="detalleMaterial" placeholder="Escribe qué material llevas..."></textarea>
   </div>
 
-  <textarea id="detalleMaterial" placeholder="Escribe qué material llevas..."></textarea>
+  <div id="bloqueExternos" style="display:none;">
+    <p class="pregunta">¿Quién ordena este servicio?</p>
+    <div class="btn-row" id="filaQuienOrdena">
+      <button data-persona="Jordi" onclick="seleccionQuienOrdena('Jordi')">Jordi</button>
+      <button data-persona="Toni" onclick="seleccionQuienOrdena('Toni')">Toni</button>
+      <button data-persona="Juan Ramon" onclick="seleccionQuienOrdena('Juan Ramon')">Juan Ramon</button>
+    </div>
+
+    <p class="campo-label">Destino (dirección o ubicación)</p>
+    <input type="text" id="destinoExternos" placeholder="Ej: Ferretería Can Pep, Ibiza" oninput="validarExternos()">
+
+    <p class="campo-label">Tarea</p>
+    <input type="text" id="tareaExternos" placeholder="Ej: Elevación de materiales" oninput="validarExternos()">
+  </div>
 
   <button class="enviar" id="btnEnviar" onclick="enviarFichaje()" disabled>Confirmar fichaje</button>
 
@@ -196,12 +220,14 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLNCOJ5a6VbrS-
 
 const params = new URLSearchParams(window.location.search);
 const obra = params.get('obra') || 'Sin especificar';
+const esExternos = obra.trim().toLowerCase() === 'externos';
 
 // Capturamos la hora exacta al cargar la página (esto no necesita internet)
 const fechaHoraFichaje = new Date();
 
 let llevaMaterial = null;
 let miCamion = null;
+let quienOrdena = null;
 
 // ---- Arranque: decidir qué pantalla mostrar ----
 function iniciar(){
@@ -256,6 +282,15 @@ function mostrarPantallaFichaje(){
   document.getElementById('obraNombre').textContent = obra;
   document.getElementById('camionNombre').textContent = miCamion.conductor + ' (' + miCamion.vehiculo + ')';
   document.getElementById('horaActual').textContent = fechaHoraFichaje.toLocaleTimeString('es-ES');
+
+  if(esExternos){
+    document.getElementById('bloqueMaterial').style.display = 'none';
+    document.getElementById('bloqueExternos').style.display = 'block';
+  }else{
+    document.getElementById('bloqueMaterial').style.display = 'block';
+    document.getElementById('bloqueExternos').style.display = 'none';
+  }
+
   intentarEnviarCola();
 }
 
@@ -267,8 +302,22 @@ function seleccionMaterial(si){
   document.getElementById('btnEnviar').disabled = false;
 }
 
+function seleccionQuienOrdena(persona){
+  quienOrdena = persona;
+  document.querySelectorAll('#filaQuienOrdena button').forEach(b => {
+    b.classList.toggle('selected', b.dataset.persona === persona);
+  });
+  validarExternos();
+}
+
+function validarExternos(){
+  // Exigimos al menos quién ordena y el destino; la tarea es recomendable pero no bloqueante
+  const destino = document.getElementById('destinoExternos').value.trim();
+  document.getElementById('btnEnviar').disabled = !(quienOrdena && destino);
+}
+
 function enviarFichaje(){
-  const registro = {
+  let registro = {
     obra: obra,
     matricula: miCamion.matricula,
     vehiculo: miCamion.vehiculo,
@@ -276,9 +325,21 @@ function enviarFichaje(){
     fecha: fechaHoraFichaje.toLocaleDateString('es-ES'),
     hora: fechaHoraFichaje.toLocaleTimeString('es-ES'),
     timestamp: fechaHoraFichaje.toISOString(),
-    llevaMaterial: llevaMaterial ? 'SI' : 'NO',
-    detalleMaterial: llevaMaterial ? document.getElementById('detalleMaterial').value : ''
+    llevaMaterial: '',
+    detalleMaterial: '',
+    quienOrdena: '',
+    destino: '',
+    tarea: ''
   };
+
+  if(esExternos){
+    registro.quienOrdena = quienOrdena;
+    registro.destino = document.getElementById('destinoExternos').value;
+    registro.tarea = document.getElementById('tareaExternos').value;
+  }else{
+    registro.llevaMaterial = llevaMaterial ? 'SI' : 'NO';
+    registro.detalleMaterial = llevaMaterial ? document.getElementById('detalleMaterial').value : '';
+  }
 
   document.getElementById('btnEnviar').disabled = true;
   document.getElementById('btnEnviar').textContent = 'Fichaje guardado ✓';

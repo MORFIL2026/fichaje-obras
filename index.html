@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Fichaje de obra</title>
+<style>
+  :root{
+    --bg: #1C1E21;
+    --panel: #26292D;
+    --text: #F5F3EE;
+    --muted: #9AA0A6;
+    --accent: #FF6B1A;
+    --accent-dark: #CC5514;
+    --ok: #3FB950;
+    --border: #383B40;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+  }
+  .card{
+    width:100%;
+    max-width:420px;
+    background: var(--panel);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:28px 24px;
+  }
+  .eyebrow{
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    font-size:12px;
+    color: var(--accent);
+    font-weight:700;
+    margin:0 0 6px 0;
+  }
+  h1{
+    font-size:26px;
+    margin:0 0 4px 0;
+    line-height:1.2;
+  }
+  .hora{
+    font-size:15px;
+    color: var(--muted);
+    margin:0 0 24px 0;
+  }
+  .cambiar-camion{
+    display:block;
+    margin:-14px 0 20px 0;
+    font-size:12px;
+    color: var(--muted);
+    text-decoration:underline;
+    cursor:pointer;
+    background:none;
+    border:none;
+    padding:0;
+    width:auto;
+    flex:none;
+  }
+  .pregunta{
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 14px 0;
+  }
+  .btn-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  button{
+    font-family:inherit;
+    font-size:15px;
+    font-weight:700;
+    border-radius:10px;
+    border:1px solid var(--border);
+    padding:14px 0;
+    flex:1;
+    cursor:pointer;
+    background: transparent;
+    color: var(--text);
+    transition: all .15s ease;
+  }
+  button.selected{
+    background: var(--accent);
+    border-color: var(--accent);
+    color:#1C1E21;
+  }
+  .btn-camion{
+    display:block;
+    width:100%;
+    text-align:left;
+    margin-bottom:10px;
+    padding:14px 16px;
+  }
+  .btn-camion .conductor{
+    display:block;
+    font-weight:800;
+    font-size:15px;
+  }
+  .btn-camion .detalle{
+    display:block;
+    font-weight:400;
+    font-size:13px;
+    color: var(--muted);
+    margin-top:2px;
+  }
+  textarea{
+    width:100%;
+    min-height:80px;
+    background: var(--bg);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color: var(--text);
+    font-size:15px;
+    padding:12px;
+    font-family:inherit;
+    resize:vertical;
+    margin-bottom:18px;
+    display:none;
+  }
+  .enviar{
+    width:100%;
+    background: var(--accent);
+    color:#1C1E21;
+    border:none;
+    padding:16px 0;
+    font-size:16px;
+    border-radius:10px;
+    font-weight:800;
+  }
+  .enviar:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .estado{
+    margin-top:16px;
+    font-size:13px;
+    text-align:center;
+    color: var(--muted);
+    min-height:18px;
+  }
+  .estado.ok{ color: var(--ok); }
+  .estado.pendiente{ color: var(--accent); }
+  .cargando{
+    text-align:center;
+    color: var(--muted);
+    font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<!-- PANTALLA 1: Selección de camión (solo la primera vez en este móvil) -->
+<div class="card" id="pantallaSeleccion" style="display:none;">
+  <p class="eyebrow">PRIMER ACCESO</p>
+  <h1>¿Quién eres?</h1>
+  <p class="hora">Selecciona tu vehículo. Solo se pregunta una vez en este móvil.</p>
+  <div id="listaCamiones">
+    <p class="cargando">Cargando lista de vehículos...</p>
+  </div>
+</div>
+
+<!-- PANTALLA 2: Fichaje normal -->
+<div class="card" id="pantallaFichaje" style="display:none;">
+  <p class="eyebrow" id="obraLabel">OBRA</p>
+  <h1 id="obraNombre">—</h1>
+  <p class="hora">Camión: <strong id="camionNombre">—</strong> · Fichaje a las <strong id="horaActual">--:--:--</strong></p>
+  <button class="cambiar-camion" onclick="cambiarCamion()">¿No eres tú? Cambiar vehículo</button>
+
+  <p class="pregunta">¿Llevas material?</p>
+  <div class="btn-row">
+    <button id="btnSi" onclick="seleccionMaterial(true)">Sí</button>
+    <button id="btnNo" onclick="seleccionMaterial(false)">No</button>
+  </div>
+
+  <textarea id="detalleMaterial" placeholder="Escribe qué material llevas..."></textarea>
+
+  <button class="enviar" id="btnEnviar" onclick="enviarFichaje()" disabled>Confirmar fichaje</button>
+
+  <p class="estado" id="estado"></p>
+</div>
+
+<script>
+// ==== CONFIGURA AQUÍ TU URL DE GOOGLE APPS SCRIPT ====
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLNCOJ5a6VbrS-iBsBlB5z9XqRmjFrowdYAF1gukpG2XNF-tVNQ9-Phgl94vAXCGnnYg/exec";
+// =======================================================
+
+const params = new URLSearchParams(window.location.search);
+const obra = params.get('obra') || 'Sin especificar';
+
+// Capturamos la hora exacta al cargar la página (esto no necesita internet)
+const fechaHoraFichaje = new Date();
+
+let llevaMaterial = null;
+let miCamion = null;
+
+// ---- Arranque: decidir qué pantalla mostrar ----
+function iniciar(){
+  const guardado = localStorage.getItem('miCamion');
+  if(guardado){
+    miCamion = JSON.parse(guardado);
+    mostrarPantallaFichaje();
+  }else{
+    mostrarPantallaSeleccion();
+  }
+}
+
+async function mostrarPantallaSeleccion(){
+  document.getElementById('pantallaSeleccion').style.display = 'block';
+  document.getElementById('pantallaFichaje').style.display = 'none';
+
+  try{
+    const resp = await fetch(APPS_SCRIPT_URL); // GET simple, sin cabeceras especiales
+    const camiones = await resp.json();
+    const cont = document.getElementById('listaCamiones');
+    cont.innerHTML = '';
+    camiones.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-camion';
+      btn.innerHTML = `<span class="conductor">${c.conductor}</span><span class="detalle">${c.vehiculo} · ${c.matricula}</span>`;
+      btn.onclick = () => seleccionarCamion(c);
+      cont.appendChild(btn);
+    });
+    if(camiones.length === 0){
+      cont.innerHTML = '<p class="cargando">No hay vehículos activos. Contacta con el gerente.</p>';
+    }
+  }catch(e){
+    document.getElementById('listaCamiones').innerHTML =
+      '<p class="cargando">Sin conexión para cargar la lista. Necesitas cobertura la primera vez que uses la web.</p>';
+  }
+}
+
+function seleccionarCamion(c){
+  miCamion = c;
+  localStorage.setItem('miCamion', JSON.stringify(c));
+  mostrarPantallaFichaje();
+}
+
+function cambiarCamion(){
+  localStorage.removeItem('miCamion');
+  iniciar();
+}
+
+function mostrarPantallaFichaje(){
+  document.getElementById('pantallaSeleccion').style.display = 'none';
+  document.getElementById('pantallaFichaje').style.display = 'block';
+  document.getElementById('obraNombre').textContent = obra;
+  document.getElementById('camionNombre').textContent = miCamion.conductor + ' (' + miCamion.vehiculo + ')';
+  document.getElementById('horaActual').textContent = fechaHoraFichaje.toLocaleTimeString('es-ES');
+  intentarEnviarCola();
+}
+
+function seleccionMaterial(si){
+  llevaMaterial = si;
+  document.getElementById('btnSi').classList.toggle('selected', si);
+  document.getElementById('btnNo').classList.toggle('selected', !si);
+  document.getElementById('detalleMaterial').style.display = si ? 'block' : 'none';
+  document.getElementById('btnEnviar').disabled = false;
+}
+
+function enviarFichaje(){
+  const registro = {
+    obra: obra,
+    matricula: miCamion.matricula,
+    vehiculo: miCamion.vehiculo,
+    conductor: miCamion.conductor,
+    fecha: fechaHoraFichaje.toLocaleDateString('es-ES'),
+    hora: fechaHoraFichaje.toLocaleTimeString('es-ES'),
+    timestamp: fechaHoraFichaje.toISOString(),
+    llevaMaterial: llevaMaterial ? 'SI' : 'NO',
+    detalleMaterial: llevaMaterial ? document.getElementById('detalleMaterial').value : ''
+  };
+
+  document.getElementById('btnEnviar').disabled = true;
+  document.getElementById('btnEnviar').textContent = 'Fichaje guardado ✓';
+
+  guardarEnCola(registro);
+  intentarEnviarCola();
+}
+
+// ---- Cola local para funcionar sin cobertura ----
+
+function obtenerCola(){
+  return JSON.parse(localStorage.getItem('colaFichajes') || '[]');
+}
+
+function guardarEnCola(registro){
+  const cola = obtenerCola();
+  cola.push(registro);
+  localStorage.setItem('colaFichajes', JSON.stringify(cola));
+  mostrarEstado(`Guardado localmente (${cola.length} pendiente/s de enviar)`, 'pendiente');
+}
+
+function mostrarEstado(texto, tipo){
+  const el = document.getElementById('estado');
+  if(!el) return;
+  el.textContent = texto;
+  el.className = 'estado ' + (tipo || '');
+}
+
+let enviandoCola = false; // Candado: evita que dos intentos de envío se solapen y dupliquen filas
+
+async function intentarEnviarCola(){
+  if(enviandoCola) return; // Si ya hay un envío en curso, no lanzamos otro en paralelo
+  let cola = obtenerCola();
+  if(cola.length === 0) return;
+
+  if(!navigator.onLine){
+    mostrarEstado(`Sin cobertura. ${cola.length} fichaje/s en espera, se enviarán solos.`, 'pendiente');
+    return;
+  }
+
+  enviandoCola = true;
+  try{
+    const pendientes = [];
+    for(const registro of cola){
+      try{
+        await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Apps Script Web App requiere esto desde el navegador
+          headers: {'Content-Type': 'text/plain'},
+          body: JSON.stringify(registro)
+        });
+      }catch(e){
+        pendientes.push(registro);
+      }
+    }
+    localStorage.setItem('colaFichajes', JSON.stringify(pendientes));
+
+    if(pendientes.length === 0){
+      mostrarEstado('Fichaje enviado correctamente ✓', 'ok');
+    }else{
+      mostrarEstado(`${pendientes.length} fichaje/s pendiente/s de conexión`, 'pendiente');
+    }
+  } finally {
+    enviandoCola = false; // Liberamos el candado pase lo que pase
+  }
+}
+
+// Reintenta automáticamente cuando vuelve la cobertura
+window.addEventListener('online', intentarEnviarCola);
+// Reintenta también cada 20s por si el evento 'online' no salta bien en el móvil
+setInterval(intentarEnviarCola, 20000);
+
+iniciar();
+</script>
+
+</body>
+</html>

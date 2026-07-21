@@ -223,6 +223,7 @@ const PIN_CAMBIO = "2468";
 const params = new URLSearchParams(window.location.search);
 const obra = params.get('obra') || 'Sin especificar';
 const esExternos = obra.trim().toLowerCase() === 'externos';
+const esFinJornada = obra.trim().toLowerCase() === 'fin de jornada';
 
 // Capturamos la hora exacta al cargar la página (esto no necesita internet)
 const fechaHoraFichaje = new Date();
@@ -291,13 +292,15 @@ function mostrarPantallaFichaje(){
   document.getElementById('camionNombre').textContent = miCamion.conductor + ' (' + miCamion.vehiculo + ')';
   document.getElementById('horaActual').textContent = fechaHoraFichaje.toLocaleTimeString('es-ES');
 
-  if(esExternos){
+  if(esFinJornada){
+    document.getElementById('bloqueMaterial').style.display = 'none';
+    document.getElementById('bloqueExternos').style.display = 'none';
+    document.getElementById('btnEnviar').disabled = false;
+    document.getElementById('btnEnviar').textContent = 'Confirmar fin de jornada';
+  }else if(esExternos){
     document.getElementById('bloqueMaterial').style.display = 'none';
     document.getElementById('bloqueExternos').style.display = 'block';
   }else{
-    document.getElementById('bloqueMaterial').style.display = 'block';
-    document.getElementById('bloqueExternos').style.display = 'none';
-  }
 
   // El enlace de cambiar vehículo solo aparece si la URL lleva ?cambiar=1 (uso de gestión)
   if(params.get('cambiar') === '1'){
@@ -349,7 +352,7 @@ function enviarFichaje(){
     registro.quienOrdena = quienOrdena;
     registro.destino = document.getElementById('destinoExternos').value;
     registro.tarea = document.getElementById('tareaExternos').value;
-  }else{
+  }else if(!esFinJornada){
     registro.llevaMaterial = llevaMaterial ? 'SI' : 'NO';
     registro.detalleMaterial = llevaMaterial ? document.getElementById('detalleMaterial').value : '';
   }

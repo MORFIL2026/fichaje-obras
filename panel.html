@@ -155,6 +155,11 @@ tr.sub td{ background:var(--soft); padding:10px 12px; }
 
 .detalle-scroll{ max-height:420px; overflow:auto; }
 .vacio{ color:var(--muted); }
+.btn-borrar{
+  background:none; border:none; cursor:pointer; font-size:14px;
+  color:var(--muted); padding:2px 6px; border-radius:6px; font-family:inherit;
+}
+.btn-borrar:hover{ background:var(--chip-warn-bg); color:var(--warn); }
 footer{ font-size:11px; color:var(--muted); margin-top:16px; }
 .estado-carga{ text-align:center; color:var(--muted); padding:30px 0; font-size:14px; }
 
@@ -267,7 +272,11 @@ footer{ font-size:11px; color:var(--muted); margin-top:16px; }
           <select id="mPersona"></select>
         </div>
         <div class="campo">
-          <label for="mDestino">Obra / Presupuesto (texto libre)</label>
+          <label for="mObraSel">Obra / Destino</label>
+          <select id="mObraSel"></select>
+        </div>
+        <div class="campo" id="campoDestinoLibre" style="display:none;">
+          <label for="mDestino">Nombre del presupuesto / destino</label>
           <input type="text" id="mDestino" placeholder="Ej: Presupuesto Cala Vadella">
         </div>
         <div class="campo">
@@ -317,7 +326,7 @@ footer{ font-size:11px; color:var(--muted); margin-top:16px; }
     <h2>Detalle de fichajes</h2>
     <div class="detalle-scroll">
       <table>
-        <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Obra</th><th>Material / Tarea</th><th class="der">Horas</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Obra</th><th>Material / Tarea</th><th class="der">Horas</th><th></th></tr></thead>
         <tbody id="tablaDetalle"></tbody>
       </table>
     </div>
@@ -357,6 +366,7 @@ let fichajes = [];
 let camiones = [];
 let datosActuales = [];
 let tsvParte = '';
+let obrasActivas = [];
 
 document.querySelectorAll('.logo-bof').forEach(img => img.src = LOGO_BOFIBIZA);
 
@@ -402,6 +412,10 @@ async function cargarCamiones(){
     const resp = await fetch(APPS_SCRIPT_URL);
     camiones = await resp.json();
   }catch(e){ camiones = []; }
+  try{
+    const respO = await fetch(APPS_SCRIPT_URL + '?tipo=obras');
+    obrasActivas = await respO.json();
+  }catch(e){ obrasActivas = []; }
 }
 
 async function cargarDatos(){
@@ -444,6 +458,7 @@ function procesarDatos(datos){
       destino: String(f.destino || ''),
       tarea: String(f.tarea || ''),
       ts: ts,
+      tsRaw: String(f.timestamp),
       manual: horasManual != null && !isNaN(horasManual),
       horas: (horasManual != null && !isNaN(horasManual)) ? horasManual : null
     };
@@ -518,8 +533,9 @@ function pintar(){
       <td>${f.obra}</td>
       <td>${chips}${extra||''}</td>
       <td class="num verde">${f.horas===null ? '—' : fmtHoras(f.horas)}</td>
+      <td><button class="btn-borrar" title="Borrar este fichaje" data-ts="${encodeURIComponent(f.tsRaw)}" data-obra="${encodeURIComponent(f.obra)}" data-conductor="${encodeURIComponent(f.conductor)}">🗑</button></td>
     </tr>`;
-  }).join('') || '<tr><td colspan="6" class="vacio">Sin fichajes en este filtro</td></tr>';
+  }).join('') || '<tr><td colspan="7" class="vacio">Sin fichajes en este filtro</td></tr>';
 }
 
 function agrupar(datos, clave){
@@ -632,6 +648,14 @@ function poblarFormManual(){
   const sel = document.getElementById('mPersona');
   const nombres = camiones.map(v => v.conductor);
   sel.innerHTML = nombres.map(n => `<option>${n}</option>`).join('') + '<option>Oficina</option>';
+
+  const selObra = document.getElementById('mObraSel');
+  const obrasForm = obrasActivas.filter(o => String(o).trim().toUpperCase() !== 'FIN DE JORNADA');
+  selObra.innerHTML = obrasForm.map(o => `<option>${o}</option>`).join('') +
+    '<option value="__OTRO__">— Otro / Presupuesto (escribir) —</option>';
+  selObra.onchange = function(){
+    document.getElementById('campoDestinoLibre').style.display = this.value === '__OTRO__' ? '' : 'none';
+  };
   const hoy = new Date();
   document.getElementById('mFecha').value = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
 }
@@ -641,13 +665,14 @@ document.getElementById('formManual').addEventListener('submit', async function(
   const msg = document.getElementById('msgForm');
   const btn = document.getElementById('btnGuardarManual');
   const persona = document.getElementById('mPersona').value;
-  const destino = document.getElementById('mDestino').value.trim();
+  const obraSel = document.getElementById('mObraSel').value;
+  const destino = obraSel === '__OTRO__' ? document.getElementById('mDestino').value.trim() : obraSel;
   const fecha = document.getElementById('mFecha').value;
   const horaIni = document.getElementById('mHoraInicio').value;
   const horas = parseFloat(document.getElementById('mHoras').value);
   const concepto = document.getElementById('mConcepto').value.trim();
   if(!destino || !fecha || !horaIni || !horas || horas <= 0){
-    msg.textContent = 'Rellena destino, fecha, hora y horas.';
+    msg.textContent = 'Rellena obra/destino, fecha, hora y horas.';
     msg.className = 'msg-form error';
     return;
   }
@@ -759,6 +784,32 @@ document.getElementById('btnGenerarParte').addEventListener('click', function(){
   }
   document.getElementById('btnCopiarParte').style.display = '';
   document.getElementById('btnImprimirParte').style.display = '';
+});
+
+// ---- Borrar un fichaje erróneo (con confirmación) ----
+document.getElementById('tablaDetalle').addEventListener('click', async function(ev){
+  const btn = ev.target.closest('.btn-borrar');
+  if(!btn) return;
+  const obra = decodeURIComponent(btn.dataset.obra);
+  const conductor = decodeURIComponent(btn.dataset.conductor);
+  const tsRaw = decodeURIComponent(btn.dataset.ts);
+  const fila = btn.closest('tr');
+  const fecha = fila ? fila.children[0].textContent + ' ' + fila.children[1].textContent : '';
+  if(!window.confirm('¿Borrar el fichaje de ' + conductor + ' en «' + obra + '» (' + fecha + ')?\n\nEsta acción no se puede deshacer.')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({ tipo:'borrar', clave: claveGuardada(), timestamp: tsRaw, obra: obra, conductor: conductor })
+    });
+    setTimeout(cargarDatos, 1500);
+  }catch(e){
+    btn.disabled = false;
+    btn.textContent = '🗑';
+    alert('No se pudo borrar. Comprueba tu conexión e inténtalo de nuevo.');
+  }
 });
 
 document.getElementById('btnImprimirParte').addEventListener('click', () => window.print());

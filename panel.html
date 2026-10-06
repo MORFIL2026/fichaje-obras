@@ -434,7 +434,10 @@ async function cargarDatos(){
   }
 }
 
+let ultimosDatos = [];
+
 function recibirDatos(datos){
+  ultimosDatos = datos || [];
   procesarDatos(datos);
   poblarFiltros();
   poblarFormManual();
@@ -693,10 +696,16 @@ document.getElementById('formManual').addEventListener('submit', async function(
     });
     msg.textContent = 'Guardado: ' + horas.toLocaleString('es-ES') + ' h de ' + persona + ' en «' + destino + '».';
     msg.className = 'msg-form';
+    // La pintamos al instante, sin esperar a la hoja
+    ultimosDatos.push({ obra: destino, matricula:'', vehiculo:'Manual', conductor: persona,
+      timestamp: ts.toISOString(), llevaMaterial:'', detalleMaterial:'', quienOrdena:'', destino:'', tarea: concepto, horasManual: String(horas) });
+    procesarDatos(ultimosDatos);
+    poblarFiltros();
+    pintar();
     document.getElementById('mDestino').value = '';
     document.getElementById('mHoras').value = '';
     document.getElementById('mConcepto').value = '';
-    setTimeout(cargarDatos, 1500); // recargamos para que aparezca
+    setTimeout(cargarDatos, 6000); // reconciliación silenciosa
   }catch(e){
     msg.textContent = 'No se pudo guardar. Comprueba tu conexión e inténtalo de nuevo.';
     msg.className = 'msg-form error';
@@ -799,16 +808,22 @@ document.getElementById('tablaDetalle').addEventListener('click', async function
   btn.disabled = true;
   btn.textContent = '…';
   try{
+    // La quitamos de la pantalla al instante (borrado optimista)...
+    ultimosDatos = ultimosDatos.filter(d => !(String(d.timestamp) === tsRaw && String(d.obra) === obra && String(d.conductor) === conductor));
+    procesarDatos(ultimosDatos);
+    poblarFiltros();
+    pintar();
+    // ...y el borrado real viaja a la hoja por detrás
     await fetch(APPS_SCRIPT_URL, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({ tipo:'borrar', clave: claveGuardada(), timestamp: tsRaw, obra: obra, conductor: conductor })
     });
-    setTimeout(cargarDatos, 1500);
+    // Reconciliación silenciosa pasados unos segundos, por si acaso
+    setTimeout(cargarDatos, 6000);
   }catch(e){
-    btn.disabled = false;
-    btn.textContent = '🗑';
-    alert('No se pudo borrar. Comprueba tu conexión e inténtalo de nuevo.');
+    alert('No se pudo borrar en la hoja. Recarga el panel y comprueba si la fila sigue ahí.');
+    cargarDatos();
   }
 });
 

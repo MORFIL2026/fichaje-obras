@@ -10,8 +10,8 @@
     --panel: #26292D;
     --text: #F5F3EE;
     --muted: #9AA0A6;
-    --accent: #FF6B1A;
-    --accent-dark: #CC5514;
+    --accent: #4FB5DC;
+    --accent-dark: #2E8FB5;
     --ok: #3FB950;
     --border: #383B40;
   }
@@ -35,6 +35,15 @@
     border-radius:16px;
     padding:28px 24px;
   }
+  .logo-bof-placa{
+    display:inline-flex;
+    align-items:center;
+    background:#FFFFFF;
+    border-radius:8px;
+    padding:5px 9px;
+    margin-bottom:14px;
+  }
+  .logo-bof-placa img{ height:24px; width:auto; display:block; }
   .eyebrow{
     text-transform:uppercase;
     letter-spacing:0.12em;
@@ -169,6 +178,7 @@
 
 <!-- PANTALLA 1: Selección de camión (solo la primera vez en este móvil) -->
 <div class="card" id="pantallaSeleccion" style="display:none;">
+  <span class="logo-bof-placa"><img class="logo-bof" alt="BOFIBIZA"></span>
   <p class="eyebrow">PRIMER ACCESO</p>
   <h1>¿Quién eres?</h1>
   <p class="hora">Selecciona tu vehículo. Solo se pregunta una vez en este móvil.</p>
@@ -179,6 +189,7 @@
 
 <!-- PANTALLA 2: Fichaje normal -->
 <div class="card" id="pantallaFichaje" style="display:none;">
+  <span class="logo-bof-placa"><img class="logo-bof" alt="BOFIBIZA"></span>
   <p class="eyebrow" id="obraLabel">OBRA</p>
   <h1 id="obraNombre">—</h1>
   <p class="hora">Camión: <strong id="camionNombre">—</strong> · Fichaje a las <strong id="horaActual">--:--:--</strong></p>
@@ -219,6 +230,9 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLNCOJ5a6VbrS-
 // ==== PIN para poder cambiar de vehículo (solo gestión) ====
 const PIN_CAMBIO = "2468";
 // =======================================================
+
+const LOGO_BOFIBIZA = 'data:image/jpeg;base64,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';
+document.querySelectorAll('.logo-bof').forEach(img => img.src = LOGO_BOFIBIZA);
 
 const params = new URLSearchParams(window.location.search);
 const obra = params.get('obra') || 'Sin especificar';
@@ -303,10 +317,6 @@ function mostrarPantallaFichaje(){
   }else{
     document.getElementById('bloqueMaterial').style.display = 'block';
     document.getElementById('bloqueExternos').style.display = 'none';
-  }
-
-  if(params.get('cambiar') === '1'){
-    document.getElementById('btnCambiarCamion').style.display = 'block';
   }
 
   intentarEnviarCola();

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Fichajes BOFIBIZA</title>
+<style>
+:root{
+  --bg: #F6F4F0;
+  --card: #FFFFFF;
+  --fg: #24211C;
+  --muted: #8B8578;
+  --accent: #1B87B3;
+  --good: #2F7D4F;
+  --line: #E8E3DA;
+  --soft: #F2EEE7;
+  --chip-ok-bg: #E7F3EB;
+  --warn: #B03A2E;
+  --chip-warn-bg: #F9E8E5;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--fg);
+  padding: 20px;
+}
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; margin-bottom:18px;
+}
+.titulo{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.titulo .logo-cab{
+  background:#FFFFFF; border:1px solid var(--line); border-radius:8px;
+  padding:5px 9px; display:inline-flex; align-items:center;
+}
+.titulo .logo-cab img{ height:26px; width:auto; display:block; }
+h1{ font-size:19px; margin:0; }
+.acciones button{
+  background:var(--card); border:1px solid var(--line); border-radius:8px;
+  padding:8px 14px; font-size:13px; cursor:pointer; color:var(--fg); font-family:inherit; margin-left:8px;
+}
+.acciones button:hover{ border-color:var(--accent); }
+
+.filtros{
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:14px 16px; display:flex; flex-wrap:wrap; gap:14px; margin-bottom:18px; align-items:flex-end;
+}
+.filtro label{ display:block; font-size:11px; color:var(--muted); margin-bottom:4px; font-weight:600; letter-spacing:0.03em; }
+.filtro select{
+  font-family:inherit; font-size:14px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); min-width:150px; max-width:100%;
+}
+
+.kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:18px; }
+.kpi{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.kpi .etiqueta{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+.kpi .valor{ font-size:25px; font-weight:800; font-variant-numeric:tabular-nums; }
+.kpi .valor.verde{ color:var(--good); }
+.kpi .valor.azul{ color:var(--accent); }
+.kpi .sub{ font-size:11px; color:var(--muted); margin-top:4px; }
+
+.fila-bloques{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+@media (max-width:900px){ .fila-bloques{ grid-template-columns:1fr; } }
+.bloque{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; min-width:0; }
+.bloque h2{ font-size:14px; margin:0 0 10px 0; }
+.tabla-scroll{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; font-size:13px; }
+th{
+  text-align:left; color:var(--muted); font-weight:600; font-size:11px;
+  text-transform:uppercase; letter-spacing:0.04em; padding:6px 8px; border-bottom:1px solid var(--line); white-space:nowrap;
+}
+td{ padding:7px 8px; border-bottom:1px solid var(--soft); vertical-align:middle; }
+td.num{ text-align:right; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+td.num.verde{ color:var(--good); }
+tr:last-child td{ border-bottom:none; }
+th.der{ text-align:right; }
+.barra{ background:var(--soft); border-radius:4px; height:8px; overflow:hidden; min-width:50px; }
+.barra > div{ height:100%; background:var(--accent); border-radius:4px; }
+tr.fila-exp td{ cursor:pointer; }
+tr.fila-exp:hover td{ background:var(--soft); }
+.caret{ display:inline-block; font-size:10px; color:var(--muted); margin-right:6px; transition:transform .15s ease; }
+tr.abierta .caret{ transform:rotate(90deg); }
+tr.sub td{ background:var(--soft); padding:10px 12px; }
+.subtabla{ width:100%; border-collapse:collapse; font-size:12px; }
+.subtabla th{ font-size:10px; padding:4px 6px; border-bottom:1px solid var(--line); }
+.subtabla td{ padding:5px 6px; border-bottom:1px solid var(--line); background:transparent; }
+.subtabla tr:last-child td{ border-bottom:none; }
+.chip{ display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; background:var(--soft); color:var(--muted); margin-right:4px; white-space:nowrap; }
+.chip.si{ background:var(--chip-ok-bg); color:var(--good); }
+.chip.warn{ background:var(--chip-warn-bg); color:var(--warn); font-weight:700; }
+.chip.manual{ background:var(--soft); color:var(--accent); font-weight:700; }
+
+.jornada-lista{ display:flex; flex-direction:column; }
+.jornada-fila{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:8px 2px; border-bottom:1px solid var(--soft); flex-wrap:wrap;
+}
+.jornada-fila:last-child{ border-bottom:none; }
+.jornada-nombre{ font-weight:700; font-size:13px; }
+.jornada-sub{ font-size:12px; color:var(--muted); }
+.aviso-mail{ font-size:12px; color:var(--muted); margin:10px 0 0 0; padding-top:10px; border-top:1px dashed var(--line); }
+
+.form-manual{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (max-width:600px){ .form-manual{ grid-template-columns:1fr; } }
+.form-manual .campo{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.form-manual label{ font-size:11px; color:var(--muted); font-weight:600; letter-spacing:0.03em; }
+.form-manual input, .form-manual select{
+  font-family:inherit; font-size:14px; padding:8px 10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); width:100%;
+}
+.btn-guardar{
+  grid-column:1 / -1;
+  background:var(--accent); color:#fff; border:none; border-radius:8px;
+  padding:11px; font-size:14px; font-weight:800; cursor:pointer; font-family:inherit;
+}
+.btn-guardar:disabled{ opacity:0.5; cursor:not-allowed; }
+.msg-form{ grid-column:1 / -1; font-size:12px; min-height:16px; margin:0; color:var(--good); }
+.msg-form.error{ color:var(--warn); }
+
+.parte-controles{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:14px; }
+.btn-sec{
+  background:var(--card); border:1px solid var(--line); border-radius:8px;
+  padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; color:var(--fg); font-family:inherit;
+}
+.btn-sec:hover{ border-color:var(--accent); }
+.btn-sec.primario{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.albaran{
+  border:1px solid #D8D2C8; border-radius:10px; padding:22px;
+  background:#FFFFFF; color:#24211C; max-width:760px;
+}
+.albaran-logo{ height:38px; width:auto; display:block; margin-bottom:4px; }
+.albaran-cab{
+  display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  border-bottom:2px solid #24211C; padding-bottom:12px; margin-bottom:14px;
+}
+.albaran-cab .empresa{ font-size:17px; font-weight:800; }
+.albaran-cab .empresa small{ display:block; font-size:11px; color:#8B8578; font-weight:400; margin-top:2px; }
+.albaran-cab .num{ text-align:right; font-size:12px; color:#8B8578; }
+.albaran-cab .num strong{ display:block; font-size:14px; color:#24211C; font-variant-numeric:tabular-nums; }
+.albaran-meta{ display:flex; gap:24px; flex-wrap:wrap; font-size:13px; margin-bottom:14px; }
+.albaran-meta span{ color:#8B8578; font-size:11px; display:block; letter-spacing:0.03em; }
+.albaran th{ color:#8B8578; border-bottom:1px solid #E8E3DA; }
+.albaran td{ border-bottom:1px solid #F2EEE7; }
+.albaran td.num.verde{ color:#2F7D4F; }
+.albaran .chip.manual{ background:#F2EEE7; color:#1B87B3; }
+.albaran-total td{ border-top:2px solid #24211C; font-weight:800; font-size:14px; }
+.albaran-firmas{ display:flex; gap:40px; margin-top:34px; flex-wrap:wrap; }
+.albaran-firmas div{ flex:1; min-width:160px; border-top:1px solid #24211C; padding-top:6px; font-size:12px; color:#8B8578; }
+.parte-nota{ font-size:12px; color:var(--muted); margin-top:10px; }
+#tsvFallback{ width:100%; min-height:120px; font-family:monospace; font-size:11px; margin-top:10px;
+  border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--fg); padding:8px; }
+
+.detalle-scroll{ max-height:420px; overflow:auto; }
+.vacio{ color:var(--muted); }
+footer{ font-size:11px; color:var(--muted); margin-top:16px; }
+.estado-carga{ text-align:center; color:var(--muted); padding:30px 0; font-size:14px; }
+
+/* ---- Pantalla de clave ---- */
+#pantallaClave{ min-height:70vh; display:flex; align-items:center; justify-content:center; }
+.caja-clave{
+  background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:30px 28px; width:100%; max-width:360px; text-align:center;
+}
+.caja-clave .logo-cab{ display:inline-flex; margin-bottom:14px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:6px 10px; }
+.caja-clave .logo-cab img{ height:30px; width:auto; display:block; }
+.caja-clave h2{ margin:0 0 6px 0; font-size:18px; }
+.caja-clave p{ color:var(--muted); font-size:13px; margin:0 0 18px 0; }
+.caja-clave input{
+  width:100%; padding:12px; font-size:15px; border:1px solid var(--line);
+  border-radius:8px; margin-bottom:12px; text-align:center; font-family:inherit; background:var(--bg); color:var(--fg);
+}
+.caja-clave button{
+  width:100%; background:var(--accent); color:#fff; border:none; padding:12px;
+  border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.error-clave{ color:var(--warn); font-size:13px; min-height:18px; margin-top:10px; }
+
+/* ---- Impresión: solo el albarán ---- */
+@media print{
+  body{ background:#fff; padding:0; }
+  header, .filtros, .kpis, .fila-bloques, #bloqueDetalle, .parte-controles, .parte-nota, #tsvFallback, footer, .estado-carga{ display:none !important; }
+  #bloqueParte{ border:none; padding:0; }
+  #bloqueParte h2{ display:none; }
+  .albaran{ border:none; max-width:100%; padding:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE CLAVE -->
+<div id="pantallaClave" style="display:none;">
+  <div class="caja-clave">
+    <span class="logo-cab"><img class="logo-bof" alt="BOFIBIZA Construcciones"></span>
+    <h2>Panel de Fichajes</h2>
+    <p>Introduce la clave de acceso de gestión</p>
+    <input type="password" id="inputClave" placeholder="Clave" onkeydown="if(event.key==='Enter')entrar()">
+    <button onclick="entrar()">Entrar</button>
+    <div class="error-clave" id="errorClave"></div>
+  </div>
+</div>
+
+<!-- PANEL -->
+<div id="panel" style="display:none;">
+  <header>
+    <div class="titulo">
+      <span class="logo-cab"><img class="logo-bof" alt="BOFIBIZA Construcciones"></span>
+      <h1>Panel de Fichajes</h1>
+    </div>
+    <div class="acciones">
+      <button onclick="cargarDatos()">⟳ Actualizar</button>
+      <button onclick="salir()">Salir</button>
+    </div>
+  </header>
+
+  <div class="filtros">
+    <div class="filtro">
+      <label for="fMes">Mes</label>
+      <select id="fMes"></select>
+    </div>
+    <div class="filtro">
+      <label for="fConductor">Conductor</label>
+      <select id="fConductor"></select>
+    </div>
+    <div class="filtro">
+      <label for="fObra">Obra</label>
+      <select id="fObra"></select>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="etiqueta">Horas medidas</div>
+      <div class="valor verde" id="kpiHoras">—</div>
+      <div class="sub" id="kpiHorasSub"></div>
+    </div>
+    <div class="kpi">
+      <div class="etiqueta">Fichajes</div>
+      <div class="valor" id="kpiFichajes">—</div>
+      <div class="sub">registros en el filtro</div>
+    </div>
+    <div class="kpi">
+      <div class="etiqueta">Viajes con material</div>
+      <div class="valor azul" id="kpiMaterial">—</div>
+      <div class="sub">llevaban carga</div>
+    </div>
+    <div class="kpi">
+      <div class="etiqueta">Conductores activos</div>
+      <div class="valor" id="kpiConductores">—</div>
+      <div class="sub">en el filtro</div>
+    </div>
+  </div>
+
+  <div class="fila-bloques">
+    <div class="bloque">
+      <h2>Jornada de hoy · <span id="fechaHoy"></span></h2>
+      <div class="jornada-lista" id="jornadaHoy"></div>
+      <p class="aviso-mail">Aviso automático por email a administración a las 8:10 (sin fichar) y a las 16:10 (jornadas sin cerrar), de lunes a viernes.</p>
+    </div>
+    <div class="bloque">
+      <h2>Añadir horas desde oficina</h2>
+      <form class="form-manual" id="formManual">
+        <div class="campo">
+          <label for="mPersona">Persona</label>
+          <select id="mPersona"></select>
+        </div>
+        <div class="campo">
+          <label for="mDestino">Obra / Presupuesto (texto libre)</label>
+          <input type="text" id="mDestino" placeholder="Ej: Presupuesto Cala Vadella">
+        </div>
+        <div class="campo">
+          <label for="mFecha">Fecha</label>
+          <input type="date" id="mFecha">
+        </div>
+        <div class="campo">
+          <label for="mHoraInicio">Hora de inicio</label>
+          <input type="time" id="mHoraInicio" value="08:00">
+        </div>
+        <div class="campo">
+          <label for="mHoras">Horas (ej: 1,5)</label>
+          <input type="number" id="mHoras" step="0.25" min="0.25" max="16" placeholder="1,5">
+        </div>
+        <div class="campo">
+          <label for="mConcepto">Concepto</label>
+          <input type="text" id="mConcepto" placeholder="Ej: Mediciones para presupuesto">
+        </div>
+        <button type="submit" class="btn-guardar" id="btnGuardarManual">Guardar horas</button>
+        <p class="msg-form" id="msgForm"></p>
+      </form>
+    </div>
+  </div>
+
+  <div class="fila-bloques">
+    <div class="bloque">
+      <h2>Horas por obra</h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Obra</th><th></th><th class="der">Horas</th><th class="der">Viajes</th></tr></thead>
+          <tbody id="tablaObras"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="bloque">
+      <h2>Horas por conductor</h2>
+      <div class="tabla-scroll">
+        <table>
+          <thead><tr><th>Conductor</th><th></th><th class="der">Horas</th><th class="der">Viajes</th></tr></thead>
+          <tbody id="tablaConductores"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="bloque" id="bloqueDetalle">
+    <h2>Detalle de fichajes</h2>
+    <div class="detalle-scroll">
+      <table>
+        <thead><tr><th>Fecha</th><th>Hora</th><th>Conductor</th><th>Obra</th><th>Material / Tarea</th><th class="der">Horas</th></tr></thead>
+        <tbody id="tablaDetalle"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bloque" id="bloqueParte" style="margin-top:18px;">
+    <h2>Parte de trabajo mensual (albarán)</h2>
+    <div class="parte-controles">
+      <div class="filtro">
+        <label for="pMes">Mes</label>
+        <select id="pMes"></select>
+      </div>
+      <div class="filtro">
+        <label for="pObra">Obra / Destino</label>
+        <select id="pObra"></select>
+      </div>
+      <button class="btn-sec primario" id="btnGenerarParte">Generar parte</button>
+      <button class="btn-sec" id="btnImprimirParte" style="display:none;">🖨️ Imprimir / PDF</button>
+      <button class="btn-sec" id="btnCopiarParte" style="display:none;">Copiar para Excel / Presto</button>
+    </div>
+    <div id="zonaAlbaran"></div>
+    <textarea id="tsvFallback" readonly style="display:none;"></textarea>
+    <p class="parte-nota">«Imprimir / PDF» saca solo el albarán, listo para archivar. «Copiar para Excel / Presto» copia las filas en formato tabla para pegar en una hoja.</p>
+  </div>
+
+  <p class="estado-carga" id="estadoCarga" style="display:none;">Cargando datos...</p>
+  <footer>Las horas de cada fichaje son el tiempo hasta el siguiente fichaje del mismo vehículo en el mismo día. El último del día se cierra con FIN DE JORNADA. Las horas añadidas desde oficina llevan su duración propia y la etiqueta «manual».</footer>
+</div>
+
+<script>
+// ==== URL DEL APPS SCRIPT (la misma de siempre) ====
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLNCOJ5a6VbrS-iBsBlB5z9XqRmjFrowdYAF1gukpG2XNF-tVNQ9-Phgl94vAXCGnnYg/exec";
+// ===================================================
+const LOGO_BOFIBIZA = 'data:image/jpeg;base64,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';
+
+let fichajes = [];
+let camiones = [];
+let datosActuales = [];
+let tsvParte = '';
+
+document.querySelectorAll('.logo-bof').forEach(img => img.src = LOGO_BOFIBIZA);
+
+function claveGuardada(){
+  try{ return localStorage.getItem('clavePanel') || ''; }catch(e){ return ''; }
+}
+
+function iniciar(){
+  if(claveGuardada()){
+    document.getElementById('panel').style.display = 'block';
+    cargarDatos();
+  }else{
+    document.getElementById('pantallaClave').style.display = 'flex';
+  }
+}
+
+async function entrar(){
+  const clave = document.getElementById('inputClave').value.trim();
+  const err = document.getElementById('errorClave');
+  if(!clave){ err.textContent = 'Escribe la clave.'; return; }
+  err.textContent = 'Comprobando...';
+  try{
+    const resp = await fetch(APPS_SCRIPT_URL + '?tipo=fichajes&clave=' + encodeURIComponent(clave));
+    const datos = await resp.json();
+    if(datos && datos.error === 'clave'){ err.textContent = 'Clave incorrecta.'; return; }
+    try{ localStorage.setItem('clavePanel', clave); }catch(e){}
+    document.getElementById('pantallaClave').style.display = 'none';
+    document.getElementById('panel').style.display = 'block';
+    await cargarCamiones();
+    recibirDatos(datos);
+  }catch(e){
+    err.textContent = 'No se pudo conectar. Comprueba tu conexión.';
+  }
+}
+
+function salir(){
+  try{ localStorage.removeItem('clavePanel'); }catch(e){}
+  location.reload();
+}
+
+async function cargarCamiones(){
+  try{
+    const resp = await fetch(APPS_SCRIPT_URL);
+    camiones = await resp.json();
+  }catch(e){ camiones = []; }
+}
+
+async function cargarDatos(){
+  const estado = document.getElementById('estadoCarga');
+  estado.style.display = 'block';
+  estado.textContent = 'Cargando datos...';
+  try{
+    if(camiones.length === 0) await cargarCamiones();
+    const resp = await fetch(APPS_SCRIPT_URL + '?tipo=fichajes&clave=' + encodeURIComponent(claveGuardada()));
+    const datos = await resp.json();
+    if(datos && datos.error === 'clave'){ salir(); return; }
+    recibirDatos(datos);
+    estado.style.display = 'none';
+  }catch(e){
+    estado.textContent = 'No se pudieron cargar los datos. Comprueba tu conexión y pulsa Actualizar.';
+  }
+}
+
+function recibirDatos(datos){
+  procesarDatos(datos);
+  poblarFiltros();
+  poblarFormManual();
+  poblarParte();
+  pintar();
+}
+
+// ---- Normalización y cálculo de tramos (misma lógica que la pestaña Tiempos) ----
+function procesarDatos(datos){
+  fichajes = (datos || []).filter(f => f && f.timestamp).map(f => {
+    const ts = new Date(f.timestamp);
+    const horasManual = f.horasManual !== '' && f.horasManual != null ? parseFloat(String(f.horasManual).replace(',','.')) : null;
+    return {
+      obra: String(f.obra || ''),
+      matricula: String(f.matricula || ''),
+      vehiculo: String(f.vehiculo || ''),
+      conductor: String(f.conductor || ''),
+      llevaMaterial: String(f.llevaMaterial || ''),
+      detalleMaterial: String(f.detalleMaterial || ''),
+      quienOrdena: String(f.quienOrdena || ''),
+      destino: String(f.destino || ''),
+      tarea: String(f.tarea || ''),
+      ts: ts,
+      manual: horasManual != null && !isNaN(horasManual),
+      horas: (horasManual != null && !isNaN(horasManual)) ? horasManual : null
+    };
+  }).filter(f => !isNaN(f.ts));
+
+  fichajes.forEach(f => {
+    f.mes = f.ts.getFullYear() + '-' + String(f.ts.getMonth()+1).padStart(2,'0');
+    f.dia = f.mes + '-' + String(f.ts.getDate()).padStart(2,'0');
+  });
+
+  const porMatricula = {};
+  fichajes.filter(f => !f.manual && f.matricula).forEach(f => (porMatricula[f.matricula] = porMatricula[f.matricula] || []).push(f));
+  Object.values(porMatricula).forEach(l => {
+    l.sort((a,b) => a.ts - b.ts);
+    for(let i=0; i<l.length-1; i++){
+      if(l[i].dia === l[i+1].dia) l[i].horas = (l[i+1].ts - l[i].ts) / 3600000;
+    }
+  });
+}
+
+function poblarFiltros(){
+  const meses = [...new Set(fichajes.map(f=>f.mes))].sort().reverse();
+  const conductores = [...new Set(fichajes.map(f=>f.conductor))].filter(Boolean).sort();
+  const obras = [...new Set(fichajes.map(f=>f.obra))].filter(Boolean).sort();
+  const fMes = document.getElementById('fMes');
+  const fCon = document.getElementById('fConductor');
+  const fObr = document.getElementById('fObra');
+  const vM = fMes.value, vC = fCon.value, vO = fObr.value;
+  fMes.innerHTML = '<option value="">Todo el historial</option>' + meses.map(m=>`<option>${m}</option>`).join('');
+  fCon.innerHTML = '<option value="">Todos</option>' + conductores.map(c=>`<option>${c}</option>`).join('');
+  fObr.innerHTML = '<option value="">Todas</option>' + obras.map(o=>`<option>${o}</option>`).join('');
+  if(!fMes.dataset.ini && meses.length){ fMes.value = meses[0]; fMes.dataset.ini = '1'; }
+  else { fMes.value = vM; fCon.value = vC; fObr.value = vO; }
+}
+
+function filtrados(){
+  const m = document.getElementById('fMes').value;
+  const c = document.getElementById('fConductor').value;
+  const o = document.getElementById('fObra').value;
+  return fichajes.filter(f => (!m || f.mes===m) && (!c || f.conductor===c) && (!o || f.obra===o));
+}
+
+function fmtHoras(h){ return (Math.round(h*100)/100).toLocaleString('es-ES',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function pintar(){
+  const datos = filtrados();
+  datosActuales = datos;
+  const horasTotal = datos.reduce((a,f)=>a+(f.horas||0),0);
+  const conMaterial = datos.filter(f=>f.llevaMaterial==='SI').length;
+  const conductores = new Set(datos.map(f=>f.conductor).filter(Boolean)).size;
+  const sinCerrar = datos.filter(f=>f.horas===null && !f.manual && f.obra.trim().toUpperCase()!=='FIN DE JORNADA').length;
+
+  document.getElementById('kpiHoras').textContent = fmtHoras(horasTotal)+' h';
+  document.getElementById('kpiHorasSub').textContent = sinCerrar ? sinCerrar+' tramo/s sin cierre (sin fin de jornada)' : 'todos los tramos cerrados';
+  document.getElementById('kpiFichajes').textContent = datos.length;
+  document.getElementById('kpiMaterial').textContent = conMaterial;
+  document.getElementById('kpiConductores').textContent = conductores;
+
+  pintarResumen('tablaObras', agrupar(datos.filter(f=>f.obra.trim().toUpperCase()!=='FIN DE JORNADA'), f=>f.obra), true);
+  pintarResumen('tablaConductores', agrupar(datos, f=>f.conductor));
+  pintarJornadaHoy();
+
+  const orden = [...datos].sort((a,b)=>b.ts-a.ts).slice(0,300);
+  document.getElementById('tablaDetalle').innerHTML = orden.map(f=>{
+    const extra = f.manual ? (f.tarea || '')
+      : (f.obra.trim().toUpperCase()==='EXTERNOS' ? [f.tarea, f.destino].filter(Boolean).join(' · ') : f.detalleMaterial);
+    const chips = (f.llevaMaterial==='SI' ? '<span class="chip si">material</span>' : '') + (f.manual ? '<span class="chip manual">manual</span>' : '');
+    return `<tr>
+      <td>${f.ts.toLocaleDateString('es-ES')}</td>
+      <td>${f.ts.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${f.conductor}</td>
+      <td>${f.obra}</td>
+      <td>${chips}${extra||''}</td>
+      <td class="num verde">${f.horas===null ? '—' : fmtHoras(f.horas)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" class="vacio">Sin fichajes en este filtro</td></tr>';
+}
+
+function agrupar(datos, clave){
+  const map = {};
+  datos.forEach(f=>{
+    const k = clave(f) || '—';
+    if(!map[k]) map[k] = {horas:0, viajes:0};
+    map[k].horas += (f.horas||0);
+    map[k].viajes += 1;
+  });
+  return Object.entries(map).sort((a,b)=>b[1].horas-a[1].horas);
+}
+
+function pintarResumen(id, grupos, expandible){
+  const max = Math.max(...grupos.map(g=>g[1].horas), 0.001);
+  document.getElementById(id).innerHTML = grupos.map(([nombre,g])=>`
+    <tr${expandible ? ` class="fila-exp" data-obra="${nombre.replace(/"/g,'&quot;')}"` : ''}>
+      <td>${expandible ? '<span class="caret">▶</span>' : ''}${nombre}</td>
+      <td style="width:28%"><div class="barra"><div style="width:${Math.round(g.horas/max*100)}%"></div></div></td>
+      <td class="num verde">${fmtHoras(g.horas)}</td>
+      <td class="num">${g.viajes}</td>
+    </tr>`).join('') || '<tr><td colspan="4" class="vacio">Sin datos</td></tr>';
+}
+
+// ---- Jornada de hoy ----
+function pintarJornadaHoy(){
+  const ahora = new Date();
+  const hoyClave = ahora.getFullYear() + '-' + String(ahora.getMonth()+1).padStart(2,'0') + '-' + String(ahora.getDate()).padStart(2,'0');
+  document.getElementById('fechaHoy').textContent = ahora.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'});
+  const cont = document.getElementById('jornadaHoy');
+  if(camiones.length === 0){
+    cont.innerHTML = '<p class="vacio" style="font-size:13px;">No se pudo cargar la lista de vehículos.</p>';
+    return;
+  }
+  cont.innerHTML = camiones.map(v => {
+    const deHoy = fichajes.filter(f => !f.manual && f.matricula === v.matricula && f.dia === hoyClave).sort((a,b) => a.ts - b.ts);
+    let chip, sub;
+    if(deHoy.length === 0){
+      chip = '<span class="chip warn">SIN FICHAR</span>';
+      sub = 'Avisar desde oficina';
+    }else{
+      const ultimo = deHoy[deHoy.length - 1];
+      const hIni = deHoy[0].ts.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+      if(ultimo.obra.trim().toUpperCase() === 'FIN DE JORNADA'){
+        chip = '<span class="chip si">Jornada cerrada</span>';
+        sub = 'de ' + hIni + ' a ' + ultimo.ts.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit'});
+      }else{
+        chip = '<span class="chip">En marcha</span>';
+        sub = 'desde ' + hIni + ' · ahora en ' + ultimo.obra;
+      }
+    }
+    return `<div class="jornada-fila">
+      <div>
+        <div class="jornada-nombre">${v.conductor}</div>
+        <div class="jornada-sub">${v.vehiculo} · ${sub}</div>
+      </div>
+      ${chip}
+    </div>`;
+  }).join('');
+}
+
+// ---- Desglose al pulsar una obra ----
+function construirDesglose(obra){
+  const registros = datosActuales.filter(f => f.obra === obra).sort((a,b) => b.ts - a.ts);
+  if(obra.trim().toUpperCase() === 'EXTERNOS'){
+    return `<table class="subtabla">
+      <thead><tr><th>Fecha</th><th>Persona</th><th>Ordena</th><th>Tarea · Destino</th><th class="der">Horas</th></tr></thead>
+      <tbody>${registros.map(f => `<tr>
+        <td>${f.ts.toLocaleDateString('es-ES')}</td>
+        <td>${f.conductor}</td>
+        <td>${f.quienOrdena || '—'}</td>
+        <td>${[f.tarea, f.destino].filter(Boolean).join(' · ') || '—'}</td>
+        <td class="num verde">${f.horas == null ? '—' : fmtHoras(f.horas)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+  const porConductor = agrupar(registros, f => f.conductor);
+  return `<table class="subtabla">
+    <thead><tr><th>Persona</th><th class="der">Horas</th><th class="der">Viajes</th><th>Material / Concepto</th></tr></thead>
+    <tbody>${porConductor.map(([nombre, g]) => {
+      const mats = [...new Set(registros.filter(f => f.conductor === nombre).map(f => f.manual ? f.tarea : f.detalleMaterial).filter(Boolean))].join(', ');
+      return `<tr>
+        <td>${nombre}</td>
+        <td class="num verde">${fmtHoras(g.horas)}</td>
+        <td class="num">${g.viajes}</td>
+        <td>${mats || '—'}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+document.getElementById('tablaObras').addEventListener('click', function(ev){
+  const fila = ev.target.closest('tr.fila-exp');
+  if(!fila) return;
+  const abierta = fila.nextElementSibling && fila.nextElementSibling.classList.contains('sub');
+  if(abierta){
+    fila.nextElementSibling.remove();
+    fila.classList.remove('abierta');
+  }else{
+    const sub = document.createElement('tr');
+    sub.className = 'sub';
+    sub.innerHTML = `<td colspan="4">${construirDesglose(fila.dataset.obra)}</td>`;
+    fila.after(sub);
+    fila.classList.add('abierta');
+  }
+});
+
+// ---- Horas manuales (se guardan de verdad en la hoja) ----
+function poblarFormManual(){
+  const sel = document.getElementById('mPersona');
+  const nombres = camiones.map(v => v.conductor);
+  sel.innerHTML = nombres.map(n => `<option>${n}</option>`).join('') + '<option>Oficina</option>';
+  const hoy = new Date();
+  document.getElementById('mFecha').value = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+}
+
+document.getElementById('formManual').addEventListener('submit', async function(ev){
+  ev.preventDefault();
+  const msg = document.getElementById('msgForm');
+  const btn = document.getElementById('btnGuardarManual');
+  const persona = document.getElementById('mPersona').value;
+  const destino = document.getElementById('mDestino').value.trim();
+  const fecha = document.getElementById('mFecha').value;
+  const horaIni = document.getElementById('mHoraInicio').value;
+  const horas = parseFloat(document.getElementById('mHoras').value);
+  const concepto = document.getElementById('mConcepto').value.trim();
+  if(!destino || !fecha || !horaIni || !horas || horas <= 0){
+    msg.textContent = 'Rellena destino, fecha, hora y horas.';
+    msg.className = 'msg-form error';
+    return;
+  }
+  const ts = new Date(fecha + 'T' + horaIni + ':00');
+  btn.disabled = true; btn.textContent = 'Guardando...';
+  try{
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify({
+        tipo:'manual', clave: claveGuardada(),
+        obra: destino, conductor: persona,
+        fecha: ts.toLocaleDateString('es-ES'),
+        hora: ts.toLocaleTimeString('es-ES'),
+        timestamp: ts.toISOString(),
+        tarea: concepto, horas: horas
+      })
+    });
+    msg.textContent = 'Guardado: ' + horas.toLocaleString('es-ES') + ' h de ' + persona + ' en «' + destino + '».';
+    msg.className = 'msg-form';
+    document.getElementById('mDestino').value = '';
+    document.getElementById('mHoras').value = '';
+    document.getElementById('mConcepto').value = '';
+    setTimeout(cargarDatos, 1500); // recargamos para que aparezca
+  }catch(e){
+    msg.textContent = 'No se pudo guardar. Comprueba tu conexión e inténtalo de nuevo.';
+    msg.className = 'msg-form error';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Guardar horas';
+  }
+});
+
+// ---- Parte mensual (albarán) ----
+function poblarParte(){
+  const meses = [...new Set(fichajes.map(f=>f.mes))].sort().reverse();
+  const obras = [...new Set(fichajes.filter(f=>f.obra.trim().toUpperCase()!=='FIN DE JORNADA').map(f=>f.obra))].filter(Boolean).sort();
+  const pMes = document.getElementById('pMes');
+  const pObra = document.getElementById('pObra');
+  const vM = pMes.value, vO = pObra.value;
+  pMes.innerHTML = meses.map(m=>`<option>${m}</option>`).join('');
+  pObra.innerHTML = '<option value="__TODAS__">— Resumen de todas —</option>' + obras.map(o=>`<option>${o}</option>`).join('');
+  if(vM) pMes.value = vM;
+  if(vO) pObra.value = vO;
+}
+
+function nombreMes(m){
+  const [a, mm] = m.split('-');
+  return new Date(Number(a), Number(mm)-1, 1).toLocaleDateString('es-ES', {month:'long', year:'numeric'});
+}
+
+document.getElementById('btnGenerarParte').addEventListener('click', function(){
+  const mes = document.getElementById('pMes').value;
+  const obra = document.getElementById('pObra').value;
+  if(!mes) return;
+  const base = fichajes.filter(f => f.mes === mes && f.obra.trim().toUpperCase() !== 'FIN DE JORNADA');
+  const zona = document.getElementById('zonaAlbaran');
+  document.getElementById('tsvFallback').style.display = 'none';
+
+  const cabecera = (titulo, numParte) => `
+    <div class="albaran-cab">
+      <div class="empresa"><img class="albaran-logo" src="${LOGO_BOFIBIZA}" alt="BOFIBIZA Construcciones">CONSTRUCCIONES BOFIBIZA, S.L.<small>Parte de trabajo · Transporte y personal</small></div>
+      <div class="num">Nº de parte<strong>${numParte}</strong>Fecha de emisión<strong>${new Date().toLocaleDateString('es-ES')}</strong></div>
+    </div>
+    <div class="albaran-meta">
+      <div><span>PERIODO</span>${nombreMes(mes)}</div>
+      <div><span>OBRA / DESTINO</span>${titulo}</div>
+    </div>`;
+
+  if(obra === '__TODAS__'){
+    const grupos = agrupar(base, f => f.obra);
+    const total = grupos.reduce((a,[,g]) => a + g.horas, 0);
+    zona.innerHTML = `<div class="albaran">
+      ${cabecera('Todas las obras (resumen)', mes + '-RES')}
+      <div class="tabla-scroll"><table>
+        <thead><tr><th>Obra / Destino</th><th class="der">Viajes</th><th class="der">Horas</th></tr></thead>
+        <tbody>
+          ${grupos.map(([nombre,g]) => `<tr><td>${nombre}</td><td class="num">${g.viajes}</td><td class="num verde">${fmtHoras(g.horas)}</td></tr>`).join('')}
+          <tr class="albaran-total"><td>TOTAL</td><td></td><td class="num">${fmtHoras(total)} h</td></tr>
+        </tbody>
+      </table></div>
+      <div class="albaran-firmas"><div>Preparado por (oficina)</div><div>Conforme (gerencia)</div></div>
+    </div>`;
+    tsvParte = 'Obra\tViajes\tHoras\n' + grupos.map(([n,g]) => `${n}\t${g.viajes}\t${fmtHoras(g.horas)}`).join('\n') + `\nTOTAL\t\t${fmtHoras(total)}`;
+  }else{
+    const registros = base.filter(f => f.obra === obra);
+    const grupos = agrupar(registros, f => f.conductor);
+    const total = grupos.reduce((a,[,g]) => a + g.horas, 0);
+    const vehiculosDe = nombre => [...new Set(registros.filter(f => f.conductor === nombre && !f.manual).map(f => f.vehiculo))].join(', ') || '—';
+    const tieneManual = nombre => registros.some(f => f.conductor === nombre && f.manual);
+    zona.innerHTML = `<div class="albaran">
+      ${cabecera(obra, mes + '-' + obra.replace(/[^A-Za-z0-9]+/g,'').toUpperCase().slice(0,8))}
+      <div class="tabla-scroll"><table>
+        <thead><tr><th>Persona</th><th>Vehículo</th><th class="der">Viajes</th><th class="der">Horas</th></tr></thead>
+        <tbody>
+          ${grupos.map(([nombre, g]) => `<tr>
+            <td>${nombre}${tieneManual(nombre) ? ' <span class="chip manual">incluye manual</span>' : ''}</td>
+            <td>${vehiculosDe(nombre)}</td>
+            <td class="num">${g.viajes}</td>
+            <td class="num verde">${fmtHoras(g.horas)}</td>
+          </tr>`).join('') || '<tr><td colspan="4" class="vacio">Sin registros en ese mes</td></tr>'}
+          <tr class="albaran-total"><td colspan="3">TOTAL HORAS</td><td class="num">${fmtHoras(total)}</td></tr>
+        </tbody>
+      </table></div>
+      <div class="albaran-firmas"><div>Preparado por (oficina)</div><div>Conforme (gerencia)</div></div>
+    </div>`;
+    tsvParte = 'Persona\tVehículo\tViajes\tHoras\n' + grupos.map(([nombre, g]) =>
+      `${nombre}\t${vehiculosDe(nombre)}\t${g.viajes}\t${fmtHoras(g.horas)}`
+    ).join('\n') + `\nTOTAL\t\t\t${fmtHoras(total)}`;
+  }
+  document.getElementById('btnCopiarParte').style.display = '';
+  document.getElementById('btnImprimirParte').style.display = '';
+});
+
+document.getElementById('btnImprimirParte').addEventListener('click', () => window.print());
+
+document.getElementById('btnCopiarParte').addEventListener('click', function(){
+  const btn = this;
+  navigator.clipboard.writeText(tsvParte).then(() => {
+    btn.textContent = 'Copiado ✓ — pégalo en Excel';
+    setTimeout(() => { btn.textContent = 'Copiar para Excel / Presto'; }, 2500);
+  }).catch(() => {
+    const ta = document.getElementById('tsvFallback');
+    ta.value = tsvParte;
+    ta.style.display = 'block';
+    ta.focus(); ta.select();
+    btn.textContent = 'Selecciona y copia del cuadro de abajo';
+  });
+});
+
+iniciar();
+</script>
+
+</body>
+</html>
